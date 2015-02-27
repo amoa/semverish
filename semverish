@@ -1,0 +1,140 @@
+#!/bin/bash
+
+MAJOR_PATTERN="(v?([0-9]+))?"
+MINOR_PATTERN="(\.([0-9]+))?"
+PATCH_PATTERN="(\.([0-9]+))?"
+RELEASE_PATTERN="(-?([0-9A-Za-z][-0-9A-Za-z\.]*))?"
+METADATA_PATTERN="(\+([-0-9A-Za-z\.]+))?"
+PATTERN="^${MAJOR_PATTERN}${MINOR_PATTERN}${PATCH_PATTERN}${RELEASE_PATTERN}${METADATA_PATTERN}$"
+
+function parseSemver() {
+    # Match
+    if [[ "$1" =~ $PATTERN ]]; then
+
+        # Major version
+        if [ -z "${BASH_REMATCH[2]}" ]; then
+            eval $2="0"
+        else
+            eval $2=${BASH_REMATCH[2]}
+        fi
+
+        # Minor version
+        if [ -z "${BASH_REMATCH[4]}" ]; then
+            eval $3="0"
+        else
+            eval $3=${BASH_REMATCH[4]}
+        fi
+
+        # Patch version
+        if [ -z "${BASH_REMATCH[6]}" ]; then
+            eval $4="0"
+        else
+            eval $4=${BASH_REMATCH[6]}
+        fi
+
+        # Release version
+        eval $5=${BASH_REMATCH[8]}
+
+        # Metadata
+        eval $6=${BASH_REMATCH[10]}
+
+    # No match
+    else
+        eval $2="0"
+        eval $3="0"
+        eval $4="0"
+        eval $5=$1
+    fi
+}
+
+case $1 in
+
+    "parse" )
+        parseSemver "$2" major minor patch release metadata
+        echo "Major version: $major"
+        echo "Minor version: $minor"
+        echo "Patch version: $patch"
+        echo "Release: $release"
+        echo "Metadata: $metadata"
+        exit 0
+        ;;
+
+    "latest"  )
+        latestMajor="-1"
+        latestMinor="-1"
+        latestPatch="-1"
+        latestRelease=""
+
+        while read version; do
+
+            parseSemver "$version" major minor patch release metadata
+
+            # Compare major versions numerically
+            if [[ "$major" -lt "$latestMajor" ]]; then
+                continue
+            elif [[ "$major" -gt "$latestMajor" ]]; then
+                latestVersion=$version
+                latestMajor=$major
+                latestMinor=$minor
+                latestPatch=$patch
+                latestRelease=$release
+                continue
+            fi
+
+            # Compare minor versions numerically
+            if [[ "$minor" -lt "$latestMinor" ]]; then
+                continue
+            elif [[ "$minor" -gt "$latestMinor" ]]; then
+                latestVersion=$version
+                latestMinor=$minor
+                latestPatch=$patch
+                latestRelease=$release
+                continue
+            fi
+
+            # Compare patch versions numerically
+            if [[ "$patch" -lt "$latestPatch" ]]; then
+                continue
+            elif [[ "$patch" -gt "$latestPatch" ]]; then
+                latestVersion=$version
+                latestPatch=$patch
+                latestRelease=$release
+                continue
+            fi
+
+            # Compare release versions
+            # Account for cases where one is pre-release while the other is not
+            if [[ -z "$release" ]]; then
+                latestVersion=$version
+                latestRelease=$release
+                continue
+            elif [[ -z "$latestRelease" ]]; then
+                continue
+            fi
+            # Compare release versions alphabetically
+            if [[ "$release" < "$latestRelease" ]]; then
+                continue
+            elif [[ "$release" > "$latestRelease" ]]; then
+                latestVersion=$version
+                latestRelease=$release
+                continue
+            fi
+
+            # Metadata not compared; use the latter one
+            latestVersion=$version
+        done
+
+        echo $latestVersion
+        exit 0
+        ;;
+
+    * )
+        echo "Usage: semverish <command>"
+        echo ""
+        echo "Commands:"
+        echo "    parse     Parse the semver-ish version"
+        echo "                  e.g. semverish parse v1.0.0"
+        echo "    latest    Find the latest version in a list of semver-ish versions"
+        echo "                  e.g. git tag -l | semverish latest"
+        ;;
+esac
