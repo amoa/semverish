@@ -128,13 +128,32 @@ case $1 in
         exit 0
         ;;
 
+    "format" )
+        parseSemver "$2" major minor patch release metadata
+        formatted=$3
+        formatted=${formatted//%M/$major}
+        formatted=${formatted//%m/$minor}
+        formatted=${formatted//%p/$patch}
+        formatted=${formatted//%r/$release}
+        formatted=${formatted//%b/$metadata}
+        echo $formatted
+        exit 0
+        ;;
+
     * )
         echo "Usage: semverish <command>"
         echo ""
         echo "Commands:"
-        echo "    parse     Parse the semver-ish version"
-        echo "                  e.g. semverish parse v1.0.0"
-        echo "    latest    Find the latest version in a list of semver-ish versions"
-        echo "                  e.g. git tag -l | semverish latest"
+        echo "    parse                         Parse the semver-ish version"
+        echo "                                      e.g. semverish parse v1.0.0"
+        echo "    format <semver> <format>      Output the semver in a custom format"
+        echo "                                      %M      Major version"
+        echo "                                      %m      Minor version"
+        echo "                                      %p      Minor version"
+        echo "                                      %r      Prerelease version"
+        echo "                                      %b      Build metadata"
+        echo "                                      e.g. semverish format v1.0.0 \"v%M.%m.%p\""
+        echo "    latest                        Find the latest version in a list of semver-ish versions"
+        echo "                                      e.g. git tag -l | semverish latest"
         ;;
 esac
